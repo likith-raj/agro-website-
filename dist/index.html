@@ -88905,8 +88905,8 @@ window.__sheet = {group, mat, uni, renderer, scene, camera, mesh,
     <div id="root"></div>
     <noscript>This interactive showroom needs JavaScript enabled.</noscript>
     <script>
-      // Source entry only runs through Vite; opened from disk, show the self-contained build.
-      if (location.protocol === 'file:' && document.querySelector('script[src="/src/main.jsx"]')) location.replace('dist/index.html');
+      // Source entry only runs under the Vite dev server; anywhere else (disk, GitHub Pages) show the self-contained build.
+      if (document.querySelector('script[src="/src/main.jsx"]') && !document.querySelector('script[src="/@vite/client"]')) location.replace('dist/index.html');
     </script>
   </body>
 </html>
