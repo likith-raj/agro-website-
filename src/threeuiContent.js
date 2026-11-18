@@ -131,7 +131,7 @@ export function prepareShelfSource(source) {
   let html = localFonts(source)
     .replace(catalogue, () => `const STUDIO = 'DJI';\nconst BOOKS = ${JSON.stringify(records)};`)
     .replace('https://unpkg.com/three@0.181.0/build/three.module.js', offlineThree)
-    .replace('Ashen Press — The Art Book Shelf', 'AGRO DRONE TECH — PRODUCT SHELF')
+    .replace('Ashen Press — The Art Book Shelf', 'Agro Drone Tech — Product Shelf')
     .replace('>Ashen Press</span>', '>FIELD LIBRARY</span>')
     .replace('<a class="pill rise" data-d="285" href="#" onclick="return false">Join the press</a>', '<button class="pill rise" data-d="285" id="product-specifications">VIEW SPECIFICATIONS</button>')
     .replaceAll('Look inside', 'TURN OVER')

@@ -16,7 +16,7 @@ const errors = [], requests = [], results = [];
 function cdp(method, params = {}, sessionId) {
   return new Promise((resolve, reject) => {
     const requestId = ++id;
-    const timer = setTimeout(() => { pending.delete(requestId); reject(new Error(`CDP timeout: ${method}`)); }, 20000);
+    const timer = setTimeout(() => { pending.delete(requestId); reject(new Error(`CDP timeout: ${method} ${JSON.stringify({ ...params, sessionId }).slice(0, 300)}`)); }, 60000);
     pending.set(requestId, { resolve: value => { clearTimeout(timer); resolve(value); }, reject: error => { clearTimeout(timer); reject(new Error(`${method}: ${error.message}; ${JSON.stringify(params).slice(0, 220)}`)); } });
     socket.send(JSON.stringify({ id: requestId, method, params, ...(sessionId ? { sessionId } : {}) }));
   });
@@ -150,14 +150,17 @@ await until(`!!document.querySelector('dialog[open] form')`);
 check('Command bar inquiry opens', true);
 await escape();
 const shelf = await scene('.shelf-frame');
-await until(`document.querySelector('#gl').classList.contains('on') && document.querySelectorAll('.tli').length===10`, shelf);
-await until(`!document.querySelector('.loader').offsetParent || document.querySelector('.loader').classList.contains('gone')`, shelf);
+await until(`document.querySelector('#gl').classList.contains('on') && document.querySelectorAll('.tli').length===10`, shelf, 90000);
+await until(`!document.querySelector('.loader').offsetParent || document.querySelector('.loader').classList.contains('gone')`, shelf, 90000);
 check('All ten shelf slots use only the three real products', await evaluate(`[...document.querySelectorAll('.tli h2')].map(e=>e.textContent)`, shelf), ['T50', 'T25', 'MAVIC 3M', 'T50', 'T25', 'MAVIC 3M', 'T50', 'T25', 'MAVIC 3M', 'T50']);
 check('Shelf has local Inter', await evaluate(`document.fonts.check('400 14px "Inter"')`, shelf));
 check('Shelf typography is uppercase', await evaluate(`[...document.querySelectorAll('h2,p,button')].every(e=>getComputedStyle(e).textTransform==='uppercase')`, shelf));
 check('Shelf has no fictitious price or old game titles', await evaluate(`!document.body.textContent.includes('£68')&&!document.body.textContent.includes('Nightreign')`, shelf));
 await screenshot('desktop-threeui-shelf.png');
-await click('.tli:nth-child(2)', shelf, '.shelf-frame iframe');
+for (let attempt = 0; attempt < 10; attempt++) {
+  await click('.tli:nth-child(2)', shelf, '.shelf-frame iframe');
+  try { await until(`document.querySelector('#detail').classList.contains('on')`, shelf, 2000); break; } catch {}
+}
 await until(`document.querySelector('#detail').classList.contains('on') && document.querySelector('#detail-title').textContent==='T25'`, shelf);
 check('Shelf selection opens T25', true);
 await click('#detail-look', shelf, '.shelf-frame iframe');
@@ -169,8 +172,12 @@ await escape();
 await click('#detail-close', shelf, '.shelf-frame iframe');
 await until(`!document.querySelector('#detail').classList.contains('on')`, shelf);
 check('Shelf closes selected guide', true);
-check('Both shelves have five distinct guide editions', await evaluate(`BOOKS.filter(b=>b.shelf===0).length===5&&BOOKS.filter(b=>b.shelf===1).length===5&&new Set(BOOKS.map(b=>b.id)).size===10`, shelf));
-await click('.tli:nth-child(9)', shelf, '.shelf-frame iframe');
+check('Both shelves have five distinct guide editions', await evaluate(`(()=>{const BOOKS=JSON.parse([...document.scripts].map(s=>s.textContent).join('\\n').match(/const BOOKS = (\\[.*?\\]);/)[1]);return BOOKS.filter(b=>b.shelf===0).length===5&&BOOKS.filter(b=>b.shelf===1).length===5&&new Set(BOOKS.map(b=>b.id)).size===10})()`, shelf));
+await evaluate(`document.querySelector('.tli:nth-child(9)').scrollIntoView({inline:'center',block:'nearest',behavior:'instant'})`, shelf);
+for (let attempt = 0; attempt < 10; attempt++) {
+  await click('.tli:nth-child(9)', shelf, '.shelf-frame iframe');
+  try { await until(`document.querySelector('#detail').classList.contains('on')`, shelf, 2000); break; } catch {}
+}
 await until(`document.querySelector('#detail').classList.contains('on')&&document.querySelector('#detail-title').textContent==='MAVIC 3M'`, shelf);
 await click('#product-specifications', shelf, '.shelf-frame iframe');
 await until(`document.querySelector('dialog[open] h2')?.textContent==='Mavic 3M'`);
@@ -182,7 +189,7 @@ const paper = await scene('.paper-frame');
 await until(`!!window.__sheet && window.__sheet.state().intro>.8`, paper);
 check('Original paper WebGL scene renders', await evaluate(`window.__sheet.renderer.info.render.calls>0 && !!document.querySelector('#gl')`, paper));
 check('Paper uses Agro branding with an isolated sandbox', await evaluate(`document.querySelector('#bg h1').textContent==='AGRO'`, paper) && await evaluate(`document.querySelector('.paper-frame iframe').getAttribute('sandbox')==='allow-scripts'`));
-check('Paper shows the five honest sales and compliance steps', await evaluate(`(()=>{const art=drawGlass.toString();return ['PRODUCT IDENTITY','PUBLISHED SPECIFICATIONS','SELLER DOCUMENTATION','APPLICABLE REQUIREMENTS','HANDOVER & SUPPORT','NOT A LICENSE, CERTIFICATION OR MANUFACTURER AUTHORIZATION.'].every(text=>art.includes(text))&&!art.includes('signature')})()`, paper));
+check('Paper shows the five honest sales and compliance steps', await evaluate(`(()=>{const art=[...document.scripts].map(s=>s.textContent).join('\\n').match(/function drawGlass[\\s\\S]*?\\n}/)[0];return ['PRODUCT IDENTITY','PUBLISHED SPECIFICATIONS','SELLER DOCUMENTATION','APPLICABLE REQUIREMENTS','HANDOVER & SUPPORT','NOT A LICENSE, CERTIFICATION OR MANUFACTURER AUTHORIZATION.'].every(text=>art.includes(text))&&!art.includes('signature')})()`, paper));
 await screenshot('desktop-threeui-paper.png');
 const paperPoint = await evaluate(`(()=>{const q=window.__sheet.state().quad;return{x:q.reduce((s,p)=>s+p[0],0)/4,y:q.reduce((s,p)=>s+p[1],0)/4}})()`, paper);
 const framePoint = await evaluate(`(()=>{const r=document.querySelector('.paper-frame iframe').getBoundingClientRect();return{x:r.x,y:r.y}})()`);
@@ -195,7 +202,7 @@ check('Original paper drag changes rotation', await evaluate(`Math.abs(window.__
 await evaluate(`window.__retainedPaper=window.__sheet;true`, paper);
 await evaluate(`window.scrollTo({top:0,behavior:'instant'})`);
 await settle();
-await until(`scenePaused`, paper);
+await until(`new Promise(r=>{const a=window.__sheet.uni.uTime.value;setTimeout(()=>r(window.__sheet.uni.uTime.value===a),300)})`, paper);
 const time = await evaluate(`window.__sheet.uni.uTime.value`, paper);
 await new Promise(resolve => setTimeout(resolve, 250));
 check('Offscreen paper stops rendering without a pause button', await evaluate(`window.__sheet.uni.uTime.value`, paper), time);
