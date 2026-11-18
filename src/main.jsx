@@ -8,6 +8,7 @@ import '@fontsource/inter/latin-500.css';
 import '@fontsource/inter/latin-600.css';
 import { products, contact } from './products';
 import Globe from './Globe';
+import DroneViewer from './DroneViewer';
 import field from './assets/field.jpg';
 import { AnimatedTopDock } from './shaders/animated-top-dock/AnimatedTopDock';
 import { AshenPress } from './shaders/ashen-press/AshenPress';
@@ -47,7 +48,7 @@ function Reveal({ children, className = '', delay = 0 }) {
   return <motion.div className={className} initial={reduced ? false : { opacity: 0, y: 24 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true, amount: 0.12 }} transition={{ duration: 0.65, delay, ease: [0.22, 1, 0.36, 1] }}>{children}</motion.div>;
 }
 
-function PhotoStage({ product, paused, reduced, hero = false }) {
+function PhotoStage({ product, paused, reduced, hero = false, bare = false }) {
   const plane = useRef();
   const drag = useRef(null);
   const [spin, setSpin] = useState(0);
@@ -67,15 +68,25 @@ function PhotoStage({ product, paused, reduced, hero = false }) {
     plane.current.style.transform = `rotateY(${x}deg) rotateX(${y}deg)`;
   }
   function end() { drag.current = null; setDragging(false); if (plane.current) plane.current.style.transform = ''; }
-  return <div className={`product-visual ${hero ? 'hero-visual' : ''}`}>
-    <div className={`photo-stage ${dragging ? 'dragging' : ''}`} role="img" aria-label={`${product.brand} ${product.name}, real manufacturer image; drag to tilt the photo`} onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerCancel={end}>
+  const stage = <div className={`photo-stage ${dragging ? 'dragging' : ''}`} role="img" aria-label={`${product.brand} ${product.name}, real manufacturer image; drag to tilt the photo`} onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerCancel={end}>
       <div className="photo-float" style={{ animationPlayState: paused || reduced || dragging ? 'paused' : 'running' }}>
         <div className="photo-auto-rotate"><div ref={plane} className="photo-plane">
           <motion.img key={`${product.id}-${turned}`} src={turned && product.alternate ? product.alternate : product.image} alt={`${product.brand} ${product.name}`} draggable="false" initial={{ opacity: 0 }} animate={{ opacity: 1, rotateY: spin * 360 }} transition={{ opacity: { duration: .35 }, rotateY: { duration: reduced ? 0 : 1.8, ease: [0.4, 0, 0.2, 1] } }} />
         </div></div>
       </div>
-    </div>
+    </div>;
+  if (bare) return stage;
+  return <div className={`product-visual ${hero ? 'hero-visual' : ''}`}>
+    {stage}
     {!hero && <div className="photo-tools"><span>Real product photo</span><div>{product.alternate && <button type="button" onClick={() => setTurned(!turned)} aria-label={`Change ${product.name} photo angle`} title="Another manufacturer photo">{turned ? 'Front' : 'Angle'}</button>}<button type="button" onClick={() => setSpin(spin + 1)} title="Rotate the photo 360 degrees"><Icon name="rotate" size={16} /> Spin photo</button></div></div>}
+  </div>;
+}
+
+function ProductVisual({ product, paused, reduced }) {
+  const [mode, setMode] = useState('3d');
+  return <div className="product-visual">
+    {mode === '3d' ? <DroneViewer product={product} paused={paused} reduced={reduced} /> : <PhotoStage product={product} paused={paused} reduced={reduced} bare />}
+    <div className="photo-tools"><span>{mode === '3d' ? 'Drag to rotate 360°' : 'Real product photo'}</span><div className="view-toggle" role="group" aria-label={`${product.name} view`}><button type="button" aria-pressed={mode === '3d'} className={mode === '3d' ? 'selected' : ''} onClick={() => setMode('3d')}><Icon name="rotate" size={15} /> 3D model</button><button type="button" aria-pressed={mode === 'photo'} className={mode === 'photo' ? 'selected' : ''} onClick={() => setMode('photo')}>Real photo</button></div></div>
   </div>;
 }
 
@@ -109,15 +120,15 @@ function Hero({ paused, reduced, onDetails }) {
     <div className="hero-grid"><div className="hero-copy"><motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: .6 }}><div className="eyebrow"><span className="accent-dot" /> PRECISION AGRICULTURE. REAL HARDWARE.</div><h1>Built for the field.<br /><span>Ready for what's next.</span></h1><p>Smarter flights. Stronger harvests. Explore agricultural drone systems that bring precision to every acre.</p><div className="hero-buttons"><a className="btn" href="#products">Explore the products <Icon /></a><a className="text-link" href="#approach">Meet Agro Drone Tech <Icon name="diagonal" size={17} /></a></div></motion.div>
       <div className="hero-micro"><span>SPRAYING</span><span>SPREADING</span><span>CROP INTELLIGENCE</span></div>
     </div>
-    <div className="hero-showcase"><span className="hero-watermark" aria-hidden="true">{product.name === 'Mavic 3M' ? '3M' : product.name}</span><PhotoStage product={product} hero paused={paused} reduced={reduced} /><div className="hero-product-caption"><AnimatePresence mode="wait"><motion.div key={product.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: .25 }}><span>{product.brand}</span><button onClick={() => onDetails(product)}>{product.name} <Icon name="diagonal" size={16} /></button></motion.div></AnimatePresence><div className="hero-selectors" role="group" aria-label="Featured product">{products.map((p, i) => <button key={p.id} className={i === index ? 'selected' : ''} aria-label={`Show ${p.brand} ${p.name}`} aria-pressed={i === index} onClick={() => setIndex(i)}>{p.number}</button>)}</div></div></div></div>
+    <div className="hero-showcase"><span className="hero-watermark" aria-hidden="true">{product.name === 'Mavic 3M' ? '3M' : product.name}</span><div className="product-visual hero-visual"><DroneViewer product={product} hero paused={paused} reduced={reduced} /><span className="drone-hint"><Icon name="rotate" size={14} /> 3D illustration · drag to rotate 360°</span></div><div className="hero-product-caption"><AnimatePresence mode="wait"><motion.div key={product.id} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} transition={{ duration: .25 }}><span>{product.brand}</span><button onClick={() => onDetails(product)}>{product.name} <Icon name="diagonal" size={16} /></button></motion.div></AnimatePresence><div className="hero-selectors" role="group" aria-label="Featured product">{products.map((p, i) => <button key={p.id} className={i === index ? 'selected' : ''} aria-label={`Show ${p.brand} ${p.name}`} aria-pressed={i === index} onClick={() => setIndex(i)}>{p.number}</button>)}</div></div></div></div>
     <div className="hero-bottom"><a href="#products" className="scroll-link"><Icon name="down" size={16} /> Discover the range</a><p>Purpose-built systems. Field-first thinking.</p><span className="edition">2026 COLLECTION</span></div>
   </section>;
 }
 
 function Catalogue({ onDetails, onInquiry, paused, reduced }) {
   return <section id="products" className="catalogue section-shell"><Reveal className="section-heading"><div><div className="eyebrow">01 / THE HARDWARE</div><h2>Three systems.<br /><span>One smarter field.</span></h2></div><p>From precision application to crop intelligence. Find the platform that fits the way you work.</p></Reveal>
-    <div className="product-grid">{products.map((p, i) => <Reveal key={p.id} delay={i * .1} className="product-card"><div className="product-top"><span>{p.category}</span><span className="product-number">{p.number}</span></div><PhotoStage product={p} paused={paused} reduced={reduced} /><div className="product-copy"><div className="eyebrow product-brand">{p.brand}</div><h3>{p.name}</h3><p>{p.short}</p><div className="product-specs">{p.highlights.map(([value, label]) => <div key={label}><strong>{value}</strong><span>{label}</span></div>)}</div><div className="product-buttons"><button className="text-link" onClick={() => onDetails(p)}>View details <Icon name="diagonal" size={17} /></button><button className="inquire-button" onClick={() => onInquiry(p.id)} aria-label={`Inquire about ${p.name}`}><Icon name="chat" size={17} /> Inquire</button></div></div></Reveal>)}</div>
-    <Reveal className="catalogue-note"><span className="accent-dot" /><p>Actual manufacturer photography. Floating photo interaction—not a 3D scan. Published specifications, with the full details one click away.</p></Reveal>
+    <div className="product-grid">{products.map((p, i) => <Reveal key={p.id} delay={i * .1} className="product-card"><div className="product-top"><span>{p.category}</span><span className="product-number">{p.number}</span></div><ProductVisual product={p} paused={paused} reduced={reduced} /><div className="product-copy"><div className="eyebrow product-brand">{p.brand}</div><h3>{p.name}</h3><p>{p.short}</p><div className="product-specs">{p.highlights.map(([value, label]) => <div key={label}><strong>{value}</strong><span>{label}</span></div>)}</div><div className="product-buttons"><button className="text-link" onClick={() => onDetails(p)}>View details <Icon name="diagonal" size={17} /></button><button className="inquire-button" onClick={() => onInquiry(p.id)} aria-label={`Inquire about ${p.name}`}><Icon name="chat" size={17} /> Inquire</button></div></div></Reveal>)}</div>
+    <Reveal className="catalogue-note"><span className="accent-dot" /><p>Interactive 3D illustrations modelled from manufacturer photos and published proportions—not factory CAD scans. Switch to the real product photo any time. Published specifications, one click away.</p></Reveal>
   </section>;
 }
 
