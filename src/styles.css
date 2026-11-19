@@ -131,6 +131,18 @@ p { font-size: 14px; line-height: 1.8; font-weight: 400; color: var(--muted); }
 .view-toggle, .photo-tools .view-toggle { display: flex; flex-shrink: 0; gap: 4px; padding: 3px; border: 1px solid #ffffff14; border-radius: 999px; }
 .photo-tools .view-toggle button { padding: 5px 10px; border-radius: 999px; white-space: nowrap; }
 .photo-tools .view-toggle button.selected { background: #ff7a2f1f; color: var(--orange); }
+.drone-stage canvas[hidden] { display: none; }
+.viewer-loading { position: absolute; inset: 0; display: grid; place-items: center; pointer-events: none; opacity: 0; visibility: hidden; transition: opacity .25s, visibility .25s; }
+.viewer-pending { cursor: default; }
+.viewer-pending > canvas, .viewer-pending .photo-float { opacity: 0; pointer-events: none; }
+.viewer-pending .viewer-loading { opacity: 1; visibility: visible; }
+.viewer-skeleton { width: 88%; display: grid; gap: 12px; }
+.viewer-skeleton span { position: relative; overflow: hidden; height: 10px; width: 48%; background: #ffffff06; border-radius: 8px; }
+.viewer-skeleton span:first-child { width: 100%; height: 145px; border: 1px solid #ffffff08; border-radius: 12px; }
+.viewer-skeleton span:last-child { width: 30%; }
+.viewer-skeleton span::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, #fa6b2a0d, transparent); transform: translateX(-100%); animation: viewerShimmer 1.8s ease-in-out infinite; }
+.viewer-error { position: absolute; inset: 0; display: grid; align-content: center; padding: 24px; color: var(--muted); font-size: 12px; text-align: center; text-transform: uppercase; }
+@keyframes viewerShimmer { to { transform: translateX(100%); } }
 .product-copy { padding-top: 20px; }
 .product-brand { font-size: 12px; letter-spacing: .12em; margin-bottom: 6px; }
 .product-copy h3 { font-size: 22px; line-height: 1.3; font-weight: 500; letter-spacing: -.025em; }

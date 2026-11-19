@@ -83,7 +83,7 @@ await cdp('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: outp
 await cdp('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
 await cdp('Emulation.setTouchEmulationEnabled', { enabled: false });
 await cdp('Page.navigate', { url: origin });
-await until(`document.querySelectorAll('.product-card').length===3 && !!document.querySelector('.globe-stage')?.getRotation`);
+await until(`document.querySelectorAll('.product-card').length===3 && !!document.querySelector('.globe-stage')?.getRotation && [...document.querySelectorAll('.drone-stage')].filter(e=>e.__drone&&e.getAttribute('aria-busy')==='false').length===4`);
 await evaluate('document.fonts.ready.then(()=>true)');
 await until(`[...document.images].filter(e=>!e.loading||e.loading!=='lazy').every(e=>e.complete&&e.naturalWidth>0)`);
 const results = [];
@@ -103,6 +103,7 @@ check('Headings match the light spaced reference', await evaluate(`getComputedSt
 check('Globe auto-rotation responds', await evaluate(`(()=>{const g=document.querySelector('.globe-stage');const a=g.getRotation().y;g.__step(2);return g.getRotation().y>a})()`));
 check('Hero and all three cards show a 3D drone model', await evaluate(`[...document.querySelectorAll('.drone-stage')].filter(e=>e.querySelector('canvas')&&e.__drone).map(e=>e.dataset.product)`), ['t50', 't50', 't25', 'mavic']);
 check('3D models are labelled as illustrations', await evaluate(`[...document.querySelectorAll('.drone-stage canvas')].every(c=>c.getAttribute('aria-label').includes('3D illustration'))`));
+check('Startup and viewer loaders finish after the first render', await evaluate(`!document.querySelector('.site-loading,.viewer-pending') && [...document.querySelectorAll('.viewer-loading')].every(e=>e.getAttribute('aria-hidden')==='true')`));
 check('Hero 3D drone animates on its own', await evaluate(`(async()=>{const d=document.querySelector('.hero-visual .drone-stage').__drone;const a=d.state.frames,y=d.state.yaw;await new Promise(r=>setTimeout(r,700));return d.state.frames>a&&d.state.yaw>y})()`));
 check('3D rotation and propellers respond', await evaluate(`[...document.querySelectorAll('.product-card .drone-stage')].every(e=>{const d=e.__drone;const y=d.state.yaw,p=d.state.props.map(q=>q.rotation.y);const r=d.step(1);return r.yaw>y&&r.props.length>=4&&r.props.every((v,i)=>v!==p[i])})`));
 await evaluate(`window.scrollTo({top:0,behavior:'instant'})`);
@@ -149,7 +150,7 @@ await cdp('Input.dispatchKeyEvent', { type: 'keyDown', key: 'ArrowLeft', code: '
 await cdp('Input.dispatchKeyEvent', { type: 'keyUp', key: 'ArrowLeft', code: 'ArrowLeft', windowsVirtualKeyCode: 37 });
 check('Arrow keys turn the 3D drone', await evaluate(`document.querySelector('${card3d}').__drone.state.yaw<${keyYaw}`));
 await click('.product-card:first-child .view-toggle button:last-child');
-await until(`!document.querySelector('${card3d}') && document.querySelector('.product-card:first-child .photo-plane img')?.naturalWidth>0`);
+await until(`!document.querySelector('${card3d}') && document.querySelector('.product-card:first-child .photo-plane img')?.naturalWidth>0 && document.querySelector('.product-card:first-child .photo-stage').getAttribute('aria-busy')==='false'`);
 check('Real photo toggle shows the product photograph', await evaluate(`document.querySelector('.product-card:first-child .view-toggle button:last-child').getAttribute('aria-pressed')==='true'`));
 await click('.product-card:first-child .view-toggle button:first-child');
 await until(`!!document.querySelector('${card3d} canvas')`);
@@ -188,6 +189,7 @@ await until(`!!document.querySelector('.globe-stage')?.getRotation`);
 check('Reduced motion honored without a custom cursor', await evaluate(`(()=>{const g=document.querySelector('.globe-stage');const a=g.getRotation().y;g.__step(2);return g.getRotation().y===a&&!document.querySelector('.cursor')})()`));
 await until(`!!document.querySelector('.hero-visual .drone-stage')?.__drone`);
 check('Reduced motion keeps the 3D drone still', await evaluate(`(async()=>{const d=document.querySelector('.hero-visual .drone-stage').__drone;await new Promise(r=>setTimeout(r,300));const a=d.state.frames,y=d.state.yaw;await new Promise(r=>setTimeout(r,700));return a>0&&d.state.frames===a&&d.state.yaw===y})()`));
+check('Reduced motion disables the loading arc and shimmer', await evaluate(`getComputedStyle(document.querySelector('.loading-arc')).animationName==='none' && getComputedStyle(document.querySelector('.viewer-skeleton span'),'::after').animationName==='none'`));
 check('No JavaScript exceptions', errors.length, 0);
 await fs.writeFile(path.join(output, 'browser-results.json'), JSON.stringify({ origin, timestamp: new Date().toISOString(), checks: results, errors }, null, 2));
 console.log(JSON.stringify({ checks: results.length, passed: results.length, screenshots: output, errors: errors.length }, null, 2));

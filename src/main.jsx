@@ -54,6 +54,10 @@ function PhotoStage({ product, paused, reduced, hero = false, bare = false }) {
   const [spin, setSpin] = useState(0);
   const [turned, setTurned] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [loadedImage, setLoadedImage] = useState(null);
+  const [failedImage, setFailedImage] = useState(null);
+  const image = turned && product.alternate ? product.alternate : product.image;
+  const loading = loadedImage !== image && failedImage !== image;
   useEffect(() => { setTurned(false); setSpin(0); if (plane.current) plane.current.style.transform = ''; }, [product.id]);
   function start(e) {
     if (e.button !== 0) return;
@@ -68,12 +72,14 @@ function PhotoStage({ product, paused, reduced, hero = false, bare = false }) {
     plane.current.style.transform = `rotateY(${x}deg) rotateX(${y}deg)`;
   }
   function end() { drag.current = null; setDragging(false); if (plane.current) plane.current.style.transform = ''; }
-  const stage = <div className={`photo-stage ${dragging ? 'dragging' : ''}`} role="img" aria-label={`${product.brand} ${product.name}, real manufacturer image; drag to tilt the photo`} onPointerDown={start} onPointerMove={move} onPointerUp={end} onPointerCancel={end}>
+  const stage = <div className={`photo-stage ${dragging ? 'dragging' : ''} ${loading ? 'viewer-pending' : ''}`} aria-busy={loading} aria-label={`${product.brand} ${product.name}, real manufacturer image; drag to tilt the photo`} onPointerDown={loading ? undefined : start} onPointerMove={move} onPointerUp={end} onPointerCancel={end}>
       <div className="photo-float" style={{ animationPlayState: paused || reduced || dragging ? 'paused' : 'running' }}>
         <div className="photo-auto-rotate"><div ref={plane} className="photo-plane">
-          <motion.img key={`${product.id}-${turned}`} src={turned && product.alternate ? product.alternate : product.image} alt={`${product.brand} ${product.name}`} draggable="false" initial={{ opacity: 0 }} animate={{ opacity: 1, rotateY: spin * 360 }} transition={{ opacity: { duration: .35 }, rotateY: { duration: reduced ? 0 : 1.8, ease: [0.4, 0, 0.2, 1] } }} />
+          <motion.img key={`${product.id}-${turned}`} src={image} alt={`${product.brand} ${product.name}`} draggable="false" onLoad={() => setLoadedImage(image)} onError={() => setFailedImage(image)} style={{ visibility: failedImage === image ? 'hidden' : undefined }} initial={{ opacity: 0 }} animate={{ opacity: loading ? 0 : 1, rotateY: spin * 360 }} transition={{ opacity: { duration: reduced ? 0 : .35 }, rotateY: { duration: reduced ? 0 : 1.8, ease: [0.4, 0, 0.2, 1] } }} />
         </div></div>
       </div>
+      <div className="viewer-loading" role={loading ? 'status' : undefined} aria-label={loading ? `Loading ${product.name} photo` : undefined} aria-hidden={!loading}><div className="viewer-skeleton" aria-hidden="true"><span /><span /><span /></div></div>
+      {failedImage === image && <span className="viewer-error" role="status">Photo unavailable. View the published specifications below.</span>}
     </div>;
   if (bare) return stage;
   return <div className={`product-visual ${hero ? 'hero-visual' : ''}`}>
