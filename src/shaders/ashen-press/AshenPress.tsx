@@ -1,9 +1,16 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { prepareShelfSource } from "../../threeuiContent";
 
-import ashenPressSource from "./sources/ashen-press.html?raw";
+let productShelfSource: Promise<string> | undefined;
 
-const productShelfSource = prepareShelfSource(ashenPressSource);
+function loadShelfSource() {
+  return productShelfSource ??= Promise.all([
+    import("./sources/ashen-press.html?raw"),
+    import("../../threeuiContent"),
+  ]).then(([source, { prepareShelfSource }]) => prepareShelfSource(source.default)).catch(error => {
+    productShelfSource = undefined;
+    throw error;
+  });
+}
 
 export type AshenPressProps = {
   className?: string;
@@ -28,6 +35,7 @@ export function AshenPress({ className = "", style, paused = false, onProductDet
   ));
   const [hostVisible, setHostVisible] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [source, setSource] = useState<string>();
   const [ready, setReady] = useState(false);
   const scenePaused = paused || !hostVisible || !documentVisible;
 
@@ -54,6 +62,17 @@ export function AshenPress({ className = "", style, paused = false, onProductDet
     return () => document.removeEventListener("visibilitychange", update);
   }, []);
 
+  useEffect(() => {
+    if (!mounted) return undefined;
+    let cancelled = false;
+    loadShelfSource().then(html => {
+      if (!cancelled) setSource(html);
+    }).catch(error => {
+      if (!cancelled) console.error('Unable to load shelf scene.', error);
+    });
+    return () => { cancelled = true; };
+  }, [mounted]);
+
   return (
     <div
       ref={hostRef}
@@ -69,11 +88,11 @@ export function AshenPress({ className = "", style, paused = false, onProductDet
         ...style,
       }}
     >
-      {mounted ? (
+      {mounted && source ? (
         <iframe
           ref={frameRef}
           title="Agro Drone Tech — Product Shelf"
-          srcDoc={productShelfSource}
+          srcDoc={source}
           sandbox="allow-scripts"
           loading="eager"
           onLoad={() => {

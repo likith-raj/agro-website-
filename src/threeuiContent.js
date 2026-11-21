@@ -1,5 +1,3 @@
-import threeModule from '../node_modules/three181/build/three.module.js?raw';
-import threeCore from '../node_modules/three181/build/three.core.js?raw';
 import font300 from '@fontsource/inter/files/inter-latin-300-normal.woff2?inline';
 import font400 from '@fontsource/inter/files/inter-latin-400-normal.woff2?inline';
 import font500 from '@fontsource/inter/files/inter-latin-500-normal.woff2?inline';
@@ -12,7 +10,16 @@ import { products } from './products';
 function moduleURL(code) {
   return `data:text/javascript;base64,${btoa(unescape(encodeURIComponent(code)))}`;
 }
-const offlineThree = moduleURL(threeModule.replaceAll("'./three.core.js'", JSON.stringify(moduleURL(threeCore))));
+let offlineThree;
+function getOfflineThree() {
+  return offlineThree ??= Promise.all([
+    import('../node_modules/three181/build/three.module.js?raw'),
+    import('../node_modules/three181/build/three.core.js?raw'),
+  ]).then(([module, core]) => moduleURL(module.default.replaceAll("'./three.core.js'", JSON.stringify(moduleURL(core.default))))).catch(error => {
+    offlineThree = undefined;
+    throw error;
+  });
+}
 const fonts = `<style>${[[300, font300], [400, font400], [500, font500], [600, font600]].map(([weight, url]) => `@font-face{font-family:"Inter";font-style:normal;font-weight:${weight};src:url("${url}") format("woff2");font-display:swap}`).join('')}</style>`;
 
 function localFonts(source) {
@@ -98,7 +105,12 @@ export function preparePaperSource(source) {
     .replace('function frame(){', `${motionBridge('frame')}\nfunction frame(){\n  if(scenePaused) return;`);
 }
 
-export function prepareShelfSource(source) {
+export async function prepareShelfSource(source) {
+  // Match only the authored image declarations/assignments, never the scene code.
+  const legacyImages = /^const PLATE_SRC = \{\};[^\r\n]*\r?\nconst MARK_SRC = \{\};\r?\nObject\.assign\(MARK_SRC,\{\r?\n(?:  '[a-z0-9-]+':'data:image\/webp;base64,[A-Za-z0-9+/=]+',?\r?\n)+\}\);[^\r\n]*\r?\nconst PLATE = \{\};[^\r\n]*\r?\nObject\.assign\(PLATE_SRC,\{\r?\n(?:  '[a-z0-9-]+':'data:image\/webp;base64,[A-Za-z0-9+/=]+',?\r?\n)+\}\);\r?\n(?=function loadPlates\(\)\{)/m;
+  const strippedImages = 'const PLATE_SRC = {};\nconst MARK_SRC = {};\nconst PLATE = {};\n';
+  if (!legacyImages.test(source) && !source.includes(`${strippedImages}function loadPlates(){`)) throw new Error('Registered shelf image structure changed.');
+  source = source.replace(legacyImages, strippedImages);
   const productPhotos = { t50, t25, mavic };
   const editions = [
     ['t50-spray-guide', 't50', 'SPRAY GUIDE'],
@@ -125,12 +137,11 @@ export function prepareShelfSource(source) {
       specification: product.highlights.map(([value, label]) => `${label}: ${value}`).join(' · ').toUpperCase(),
     };
   });
-  const photos = Object.fromEntries(records.map(record => [record.id, productPhotos[record.productId]]));
   const catalogue = /const STUDIO = 'FromSoftware';\nconst BOOKS = \[[\s\S]*?\n\];/;
   if (!catalogue.test(source)) throw new Error('Registered shelf catalogue structure changed.');
   let html = localFonts(source)
     .replace(catalogue, () => `const STUDIO = 'DJI';\nconst BOOKS = ${JSON.stringify(records)};`)
-    .replace('https://unpkg.com/three@0.181.0/build/three.module.js', offlineThree)
+    .replace('https://unpkg.com/three@0.181.0/build/three.module.js', await getOfflineThree())
     .replace('Ashen Press — The Art Book Shelf', 'Agro Drone Tech — Product Shelf')
     .replace('>Ashen Press</span>', '>FIELD LIBRARY</span>')
     .replace('<a class="pill rise" data-d="285" href="#" onclick="return false">Join the press</a>', '<button class="pill rise" data-d="285" id="product-specifications">VIEW SPECIFICATIONS</button>')
@@ -156,7 +167,11 @@ export function prepareShelfSource(source) {
   tracked(g,b.year,W*.5,H*.846,guideSize*.10,'center');
   g.font=\`400 \${W*.0195}px \${SANS}\`;
   tracked(g,'MODEL '+b.vol,W*.5,H*.884,W*.0195*.34,'center');`)
-    .replace('function loadPlates(){', `Object.assign(MARK_SRC, ${JSON.stringify(photos)});\nObject.assign(PLATE_SRC, ${JSON.stringify(photos)});\nfunction loadPlates(){`)
+    .replace('function loadPlates(){', () => `const PRODUCT_PHOTOS = ${JSON.stringify(productPhotos)};
+for (const book of BOOKS) {
+  MARK_SRC[book.id] = PLATE_SRC[book.id] = PRODUCT_PHOTOS[book.productId];
+}
+function loadPlates(){`)
     .replace('im.onload=()=>{PLATE[b.id]=im;res();};', `im.onload=()=>{
       const plate=document.createElement('canvas');plate.width=960;plate.height=1440;
       const g=plate.getContext('2d');

@@ -9,19 +9,29 @@
     <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%230b0a09'/%3E%3Cpath d='M12 47L32 12l20 35H40L32 32l-8 15z' fill='%23fa6b2a'/%3E%3C/svg%3E" />
     <style>
       body { margin: 0; background: #0b0a09; color: #e5d7cc; }
-      .site-loading { min-height: 100svh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; font: 12px sans-serif; letter-spacing: .16em; }
+      .site-loading { min-height: min(900px, 100svh); box-sizing: border-box; padding: 150px 56px 48px; font: 14px/1.8 Inter, Arial, sans-serif; text-transform: uppercase; letter-spacing: .025em; }
+      .boot-brand { position: absolute; top: 40px; left: 56px; color: #fa6b2a; font-size: 18px; letter-spacing: .08em; }
+      .boot-grid { min-height: 550px; display: grid; grid-template-columns: 1fr 1.05fr; align-items: center; gap: 22px; max-width: 1376px; margin: auto; }
+      .boot-copy .boot-eyebrow { color: #fa6b2a; font-size: 12px; letter-spacing: .06em; margin-bottom: 25px; }
+      .boot-copy h1 { margin: 0; font-size: clamp(32px, 3vw, 44px); font-weight: 300; line-height: 1.3; letter-spacing: .07em; }
+      .boot-copy h1 span { color: #fa6b2a; }
+      .boot-copy p { max-width: 455px; margin: 23px 0 32px; color: #a99e96; }
+      .boot-copy a { display: inline-flex; padding: 16px 24px; background: #fa6b2a; border-radius: 8px; color: #160d08; text-decoration: none; font-size: 15px; font-weight: 500; }
+      .boot-view { display: grid; justify-items: center; gap: 20px; color: #a99e96; font-size: 12px; }
+      @media (max-width: 850px) { .site-loading { padding: 125px 28px 40px; } .boot-brand { left: 28px; } .boot-grid { grid-template-columns: 1fr; gap: 32px; min-height: 650px; } .boot-view { min-height: 270px; } }
+      @media (max-width: 520px) { .site-loading { padding-left: 24px; padding-right: 24px; } .boot-copy h1 { font-size: 28px; } }
       .loading-arc { display: block; width: 34px; height: 34px; box-sizing: border-box; border: 2px solid #fa6b2a22; border-top-color: #fa6b2a; border-right-color: #fa6b2a; border-radius: 50%; animation: loadingArc 1.5s linear infinite; }
       @keyframes loadingArc { to { transform: rotate(360deg); } }
       @media (prefers-reduced-motion: reduce) { .loading-arc { animation: none; } }
     </style>
   </head>
   <body>
-    <div id="root"><div class="site-loading" role="status" aria-label="Loading Agro Drone Tech"><span class="loading-arc" aria-hidden="true"></span><span>AGRO DRONE TECH</span></div></div>
+    <div id="root"><div class="site-loading"><div class="boot-brand">AGRO DRONE TECH</div><div class="boot-grid"><div class="boot-copy"><div class="boot-eyebrow">PRECISION AGRICULTURE. REAL HARDWARE.</div><h1>Built for the field.<br /><span>Ready for what's next.</span></h1><p>Smarter flights. Stronger harvests. Explore agricultural drone systems that bring precision to every acre.</p><a href="#products">Explore the products</a></div><div class="boot-view" role="status" aria-label="Loading Agro Drone Tech 3D view"><span class="loading-arc" aria-hidden="true"></span><span>Loading 3D view</span></div></div></div></div>
     <noscript>This interactive showroom needs JavaScript enabled.</noscript>
     <script type="module" src="/src/main.jsx"></script>
     <script>
       // Source entry only runs under the Vite dev server; anywhere else (disk, GitHub Pages) show the self-contained build.
-      if (document.querySelector('script[src="/src/main.jsx"]') && !document.querySelector('script[src="/@vite/client"]')) location.replace('dist/index.html');
+      if (document.querySelector('script[src="/src/main.jsx"]') && !document.querySelector('script[src="/@vite/client"]')) location.replace('offline/index.html' + location.hash);
     </script>
   </body>
 </html>

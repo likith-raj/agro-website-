@@ -1,0 +1,226 @@
+{
+  "_three.module-BoyFt8EC.js": {
+    "file": "assets/three.module-BoyFt8EC.js",
+    "name": "three.module"
+  },
+  "index.html": {
+    "file": "assets/index-CuLQGb2p.js",
+    "name": "index",
+    "src": "index.html",
+    "isEntry": true,
+    "dynamicImports": [
+      "src/DroneViewer.jsx",
+      "src/Globe.jsx",
+      "src/shaders/ashen-press/AshenPress.tsx",
+      "src/shaders/3d-paper/ThreeDPaper.tsx",
+      "node_modules/lenis/dist/lenis.mjs"
+    ],
+    "css": [
+      "assets/index-DB-JFPYf.css"
+    ],
+    "assets": [
+      "assets/t50-VrI9xKeF.webp",
+      "assets/t25-DEvaXeaf.webp",
+      "assets/mavic-BWBzTvxO.webp",
+      "assets/t50-angle-CB5qByDG.webp",
+      "assets/t25-angle-CAwgddwd.webp",
+      "assets/field-flVsxGMA.jpg",
+      "assets/inter-latin-300-normal-BVlfKGgI.woff2",
+      "assets/inter-latin-300-normal-i8F0SvXL.woff",
+      "assets/inter-latin-400-normal-C38fXH4l.woff2",
+      "assets/inter-latin-400-normal-CyCys3Eg.woff",
+      "assets/inter-latin-500-normal-Cerq10X2.woff2",
+      "assets/inter-latin-500-normal-BL9OpVg8.woff",
+      "assets/inter-latin-600-normal-LgqL8muc.woff2",
+      "assets/inter-latin-600-normal-CiBQ2DWP.woff",
+      "assets/fragment-mono-DI4ZVuWr.woff2",
+      "assets/archivo-expanded-latin-Dn2kobIz.woff2",
+      "assets/jetbrains-mono-latin-6fWv1k7M.woff2"
+    ]
+  },
+  "node_modules/@fontsource/inter/files/inter-latin-300-normal.woff": {
+    "file": "assets/inter-latin-300-normal-i8F0SvXL.woff",
+    "src": "node_modules/@fontsource/inter/files/inter-latin-300-normal.woff"
+  },
+  "node_modules/@fontsource/inter/files/inter-latin-300-normal.woff2": {
+    "file": "assets/inter-latin-300-normal-BVlfKGgI.woff2",
+    "src": "node_modules/@fontsource/inter/files/inter-latin-300-normal.woff2"
+  },
+  "node_modules/@fontsource/inter/files/inter-latin-400-normal.woff": {
+    "file": "assets/inter-latin-400-normal-CyCys3Eg.woff",
+    "src": "node_modules/@fontsource/inter/files/inter-latin-400-normal.woff"
+  },
+  "node_modules/@fontsource/inter/files/inter-latin-400-normal.woff2": {
+    "file": "assets/inter-latin-400-normal-C38fXH4l.woff2",
+    "src": "node_modules/@fontsource/inter/files/inter-latin-400-normal.woff2"
+  },
+  "node_modules/@fontsource/inter/files/inter-latin-500-normal.woff": {
+    "file": "assets/inter-latin-500-normal-BL9OpVg8.woff",
+    "src": "node_modules/@fontsource/inter/files/inter-latin-500-normal.woff"
+  },
+  "node_modules/@fontsource/inter/files/inter-latin-500-normal.woff2": {
+    "file": "assets/inter-latin-500-normal-Cerq10X2.woff2",
+    "src": "node_modules/@fontsource/inter/files/inter-latin-500-normal.woff2"
+  },
+  "node_modules/@fontsource/inter/files/inter-latin-600-normal.woff": {
+    "file": "assets/inter-latin-600-normal-CiBQ2DWP.woff",
+    "src": "node_modules/@fontsource/inter/files/inter-latin-600-normal.woff"
+  },
+  "node_modules/@fontsource/inter/files/inter-latin-600-normal.woff2": {
+    "file": "assets/inter-latin-600-normal-LgqL8muc.woff2",
+    "src": "node_modules/@fontsource/inter/files/inter-latin-600-normal.woff2"
+  },
+  "node_modules/lenis/dist/lenis.mjs": {
+    "file": "assets/lenis-D8KRuS-9.js",
+    "name": "lenis",
+    "src": "node_modules/lenis/dist/lenis.mjs",
+    "isDynamicEntry": true
+  },
+  "node_modules/three181/build/three.core.js?raw": {
+    "file": "assets/three.core-BZBRxLTH.js",
+    "name": "three.core",
+    "src": "node_modules/three181/build/three.core.js?raw",
+    "isDynamicEntry": true
+  },
+  "node_modules/three181/build/three.module.js?raw": {
+    "file": "assets/three.module-BlKAU7Qr.js",
+    "name": "three.module",
+    "src": "node_modules/three181/build/three.module.js?raw",
+    "isDynamicEntry": true
+  },
+  "src/DroneViewer.jsx": {
+    "file": "assets/DroneViewer-CXZ5SO7J.js",
+    "name": "DroneViewer",
+    "src": "src/DroneViewer.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html",
+      "_three.module-BoyFt8EC.js"
+    ]
+  },
+  "src/Globe.jsx": {
+    "file": "assets/Globe-DK0pfSN6.js",
+    "name": "Globe",
+    "src": "src/Globe.jsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html",
+      "_three.module-BoyFt8EC.js"
+    ],
+    "assets": [
+      "assets/earth-d1pdJ3jg.jpg"
+    ]
+  },
+  "src/assets/earth.jpg": {
+    "file": "assets/earth-d1pdJ3jg.jpg",
+    "src": "src/assets/earth.jpg"
+  },
+  "src/assets/field.jpg": {
+    "file": "assets/field-flVsxGMA.jpg",
+    "src": "src/assets/field.jpg"
+  },
+  "src/assets/fonts/archivo-expanded-latin.woff2": {
+    "file": "assets/archivo-expanded-latin-Dn2kobIz.woff2",
+    "src": "src/assets/fonts/archivo-expanded-latin.woff2"
+  },
+  "src/assets/fonts/jetbrains-mono-latin.woff2": {
+    "file": "assets/jetbrains-mono-latin-6fWv1k7M.woff2",
+    "src": "src/assets/fonts/jetbrains-mono-latin.woff2"
+  },
+  "src/assets/mavic.webp": {
+    "file": "assets/mavic-BWBzTvxO.webp",
+    "src": "src/assets/mavic.webp"
+  },
+  "src/assets/t25-angle.webp": {
+    "file": "assets/t25-angle-CAwgddwd.webp",
+    "src": "src/assets/t25-angle.webp"
+  },
+  "src/assets/t25.webp": {
+    "file": "assets/t25-DEvaXeaf.webp",
+    "src": "src/assets/t25.webp"
+  },
+  "src/assets/t50-angle.webp": {
+    "file": "assets/t50-angle-CB5qByDG.webp",
+    "src": "src/assets/t50-angle.webp"
+  },
+  "src/assets/t50.webp": {
+    "file": "assets/t50-VrI9xKeF.webp",
+    "src": "src/assets/t50.webp"
+  },
+  "src/shaders/3d-paper/ThreeDPaper.tsx": {
+    "file": "assets/ThreeDPaper-DyoB4-Z9.js",
+    "name": "ThreeDPaper",
+    "src": "src/shaders/3d-paper/ThreeDPaper.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html"
+    ],
+    "dynamicImports": [
+      "src/shaders/3d-paper/sources/3d-paper.html?raw",
+      "src/threeuiContent.js",
+      "src/shaders/3d-paper/sources/3d-paper-site-of-the-year.html?raw",
+      "src/shaders/3d-paper/sources/3d-paper-japanese.html?raw",
+      "src/shaders/3d-paper/sources/3d-paper-certificate.html?raw"
+    ]
+  },
+  "src/shaders/3d-paper/sources/3d-paper-certificate.html?raw": {
+    "file": "assets/3d-paper-certificate-Ct2Dy-aW.js",
+    "name": "3d-paper-certificate",
+    "src": "src/shaders/3d-paper/sources/3d-paper-certificate.html?raw",
+    "isDynamicEntry": true
+  },
+  "src/shaders/3d-paper/sources/3d-paper-japanese.html?raw": {
+    "file": "assets/3d-paper-japanese-BjPL-9FO.js",
+    "name": "3d-paper-japanese",
+    "src": "src/shaders/3d-paper/sources/3d-paper-japanese.html?raw",
+    "isDynamicEntry": true
+  },
+  "src/shaders/3d-paper/sources/3d-paper-site-of-the-year.html?raw": {
+    "file": "assets/3d-paper-site-of-the-year-fShlw5hc.js",
+    "name": "3d-paper-site-of-the-year",
+    "src": "src/shaders/3d-paper/sources/3d-paper-site-of-the-year.html?raw",
+    "isDynamicEntry": true
+  },
+  "src/shaders/3d-paper/sources/3d-paper.html?raw": {
+    "file": "assets/3d-paper-BEQLbnya.js",
+    "name": "3d-paper",
+    "src": "src/shaders/3d-paper/sources/3d-paper.html?raw",
+    "isDynamicEntry": true
+  },
+  "src/shaders/ashen-press/AshenPress.tsx": {
+    "file": "assets/AshenPress-khzNxfJs.js",
+    "name": "AshenPress",
+    "src": "src/shaders/ashen-press/AshenPress.tsx",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html"
+    ],
+    "dynamicImports": [
+      "src/shaders/ashen-press/sources/ashen-press.html?raw",
+      "src/threeuiContent.js"
+    ]
+  },
+  "src/shaders/ashen-press/sources/ashen-press.html?raw": {
+    "file": "assets/ashen-press-rrHkEpnq.js",
+    "name": "ashen-press",
+    "src": "src/shaders/ashen-press/sources/ashen-press.html?raw",
+    "isDynamicEntry": true
+  },
+  "src/shaders/fonts/fragment-mono.woff2": {
+    "file": "assets/fragment-mono-DI4ZVuWr.woff2",
+    "src": "src/shaders/fonts/fragment-mono.woff2"
+  },
+  "src/threeuiContent.js": {
+    "file": "assets/threeuiContent-BN5BjCwI.js",
+    "name": "threeuiContent",
+    "src": "src/threeuiContent.js",
+    "isDynamicEntry": true,
+    "imports": [
+      "index.html"
+    ],
+    "dynamicImports": [
+      "node_modules/three181/build/three.module.js?raw",
+      "node_modules/three181/build/three.core.js?raw"
+    ]
+  }
+}

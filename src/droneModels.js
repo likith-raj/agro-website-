@@ -3,37 +3,108 @@ import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeom
 
 // Procedural 3D illustrations built from manufacturer photos and published proportions (metres, +Z = nose).
 
+function seeded(seed) {
+  return () => { seed = (seed * 1664525 + 1013904223) >>> 0; return seed / 4294967296; };
+}
+function canvasTexture(size, repeat, color, paint) {
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const g = canvas.getContext('2d');
+  const image = g.createImageData(size, size);
+  paint(image.data, size);
+  g.putImageData(image, 0, 0);
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
+  texture.repeat.set(repeat, repeat);
+  if (color) texture.colorSpace = THREE.SRGBColorSpace;
+  return texture;
+}
+const grey = (data, i, v) => { data[i] = data[i + 1] = data[i + 2] = Math.max(0, Math.min(255, v)); data[i + 3] = 255; };
+
+function createSurfaces() {
+  return {
+    carbon: canvasTexture(128, 3, true, (data, size) => {
+      const r = seeded(11), cell = 16;
+      for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) {
+        const cx = Math.floor(x / cell), cy = Math.floor(y / cell);
+        const along = (cx + cy) % 2 ? (x % cell) / cell : (y % cell) / cell;
+        grey(data, (y * size + x) * 4, 150 + Math.sin(along * Math.PI) * 90 + (r() - 0.5) * 18);
+      }
+    }),
+    brushed: canvasTexture(128, 2, false, (data, size) => {
+      const r = seeded(23);
+      for (let y = 0; y < size; y++) {
+        const streak = 205 + (r() - 0.5) * 70;
+        for (let x = 0; x < size; x++) grey(data, (y * size + x) * 4, streak + (r() - 0.5) * 16);
+      }
+    }),
+    grain: canvasTexture(128, 6, false, (data, size) => {
+      const r = seeded(37);
+      for (let i = 0; i < size * size; i++) grey(data, i * 4, 128 + (r() - 0.5) * 70);
+    }),
+    shell: canvasTexture(128, 1, true, (data, size) => {
+      const r = seeded(41);
+      for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) grey(data, (y * size + x) * 4, 255 - (y / size) * 38 + (r() - 0.5) * 6);
+    }),
+    rubber: canvasTexture(128, 4, false, (data, size) => {
+      const r = seeded(53), blocks = new Float32Array((size / 2) ** 2).map(() => r());
+      for (let y = 0; y < size; y++) for (let x = 0; x < size; x++) grey(data, (y * size + x) * 4, 150 + (blocks[(y >> 1) * (size / 2) + (x >> 1)] - 0.5) * 120);
+    }),
+    flat: canvasTexture(4, 1, false, data => { for (let i = 0; i < data.length; i += 4) grey(data, i, 255); }),
+  };
+}
+
+// Textures are shared by every viewer and freed when the last drone using them is disposed.
+let surfaces = null, surfaceUsers = 0;
+function acquireSurfaces() {
+  surfaces ??= createSurfaces();
+  surfaceUsers++;
+  let released = false;
+  return { textures: surfaces, release: { dispose() {
+    if (released) return;
+    released = true;
+    if (--surfaceUsers === 0) { Object.values(surfaces).forEach(texture => texture.dispose()); surfaces = null; }
+  } } };
+}
+
 function kit() {
   const disposables = [];
   const keep = item => { disposables.push(item); return item; };
+  const { textures: t, release } = acquireSurfaces();
+  keep(release);
   const m = (color, roughness = 0.5, metalness = 0, extra = {}) => keep(new THREE.MeshPhysicalMaterial({ color, roughness, metalness, ...extra }));
+  // Every textured surface uses the same three map slots so each viewer compiles as few shader programs as possible.
+  const surface = (color, roughness, metalness, { map = t.flat, bumpMap = t.flat, roughnessMap = t.flat, bumpScale = 0.35 }, extra = {}) =>
+    m(color, roughness, metalness, { map, bumpMap, roughnessMap, bumpScale, ...extra });
+  const grain = { bumpMap: t.grain };
   const mats = {
-    shell: m(0xd2d3cf, 0.42, 0, { clearcoat: 0.35, clearcoatRoughness: 0.4 }),
-    shellLight: m(0xe1e2de, 0.38, 0, { clearcoat: 0.45, clearcoatRoughness: 0.35 }),
-    shellMid: m(0xa9aba8, 0.5),
-    carbon: m(0x18191b, 0.38, 0.25, { clearcoat: 0.6, clearcoatRoughness: 0.25 }),
+    shell: surface(0xd2d3cf, 0.42, 0, { map: t.shell, ...grain }, { clearcoat: 0.35, clearcoatRoughness: 0.4 }),
+    shellLight: surface(0xe1e2de, 0.38, 0, { map: t.shell, ...grain }, { clearcoat: 0.45, clearcoatRoughness: 0.35 }),
+    shellMid: surface(0xa9aba8, 0.5, 0, grain),
+    carbon: surface(0x2a2c30, 0.38, 0.25, { map: t.carbon }, { clearcoat: 0.6, clearcoatRoughness: 0.25 }),
     black: m(0x0e0f10, 0.55, 0.1),
-    rubber: m(0x101010, 0.85),
-    yellow: m(0xf3c316, 0.4),
-    orange: m(0xff6a1f, 0.45),
+    metal: surface(0x2d2f33, 0.5, 0.75, { roughnessMap: t.brushed }),
+    rubber: surface(0x101010, 0.85, 0, { roughnessMap: t.rubber, bumpMap: t.rubber, bumpScale: 0.6 }),
+    yellow: surface(0xf3c316, 0.4, 0, grain),
+    orange: surface(0xff6a1f, 0.45, 0, grain),
     bladeLight: m(0xdcdedb, 0.35, 0, { side: THREE.DoubleSide, clearcoat: 0.3 }),
     bladeDark: m(0x1d1f22, 0.45, 0, { side: THREE.DoubleSide }),
     bladeGrey: m(0x45484c, 0.45, 0, { side: THREE.DoubleSide }),
     lamp: m(0xffffff, 0.2, 0, { emissive: 0xfff4e0, emissiveIntensity: 2.2 }),
     glass: m(0x050608, 0.08, 0.2, { clearcoat: 1, clearcoatRoughness: 0.05 }),
-    lensRing: m(0x2a2c2f, 0.3, 0.6),
-    mavic: m(0x5b5e62, 0.48, 0.05, { clearcoat: 0.25, clearcoatRoughness: 0.5 }),
+    lensRing: surface(0x2a2c2f, 0.3, 0.6, { roughnessMap: t.brushed }),
+    mavic: surface(0x5b5e62, 0.48, 0.05, grain, { clearcoat: 0.25, clearcoatRoughness: 0.5 }),
     mavicDark: m(0x2f3134, 0.5, 0.05),
-    mavicLight: m(0x8a8d90, 0.45, 0.05, { clearcoat: 0.3 }),
+    mavicLight: surface(0x8a8d90, 0.45, 0.05, grain, { clearcoat: 0.3 }),
     blur: m(0xffffff, 1, 0, { transparent: true, opacity: 0.06, depthWrite: false, side: THREE.DoubleSide }),
   };
   const geo = g => keep(g);
   const mesh = (g, material, x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(geo(g), material); o.position.set(x, y, z); return o; };
-  const box = (w, h, d, r, material, x, y, z) => mesh(new RoundedBoxGeometry(w, h, d, 4, Math.min(r, w / 2, h / 2, d / 2) * 0.999), material, x, y, z);
-  const cyl = (rt, rb, h, material, x, y, z, seg = 32) => mesh(new THREE.CylinderGeometry(rt, rb, h, seg), material, x, y, z);
+  const box = (w, h, d, r, material, x, y, z) => mesh(new RoundedBoxGeometry(w, h, d, 2, Math.min(r, w / 2, h / 2, d / 2) * 0.999), material, x, y, z);
+  const cyl = (rt, rb, h, material, x, y, z, seg = 24) => mesh(new THREE.CylinderGeometry(rt, rb, h, seg), material, x, y, z);
   const tube = (a, b, r, material) => {
     const dir = new THREE.Vector3().subVectors(b, a);
-    const o = mesh(new THREE.CylinderGeometry(r, r, dir.length(), 20), material);
+    const o = mesh(new THREE.CylinderGeometry(r, r, dir.length(), 12), material);
     o.position.copy(a).addScaledVector(dir, 0.5);
     o.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
     return o;
@@ -51,7 +122,7 @@ function kit() {
   // Two-blade propeller; tip colour optional (DJI orange tips on T25 / Mavic).
   const prop = (len, chord, material, tipMaterial, hubR) => {
     const g = new THREE.Group();
-    const extrude = { depth: chord * 0.08, bevelEnabled: false, curveSegments: 18 };
+    const extrude = { depth: chord * 0.08, bevelEnabled: false, curveSegments: 12 };
     const blade = geo(new THREE.ExtrudeGeometry(bladeShape(len, chord * 0.55, chord), extrude));
     blade.rotateX(Math.PI / 2);
     let tip;
@@ -76,7 +147,7 @@ function kit() {
       g.add(arm);
     }
     g.add(cyl(hubR, hubR, chord * 0.5, mats.black, 0, 0, 0));
-    const disc = mesh(new THREE.CircleGeometry(len * 1.02, 48), mats.blur);
+    const disc = mesh(new THREE.CircleGeometry(len * 1.02, 32), mats.blur);
     disc.rotation.x = -Math.PI / 2;
     disc.userData.blur = true;
     g.add(disc);
@@ -128,7 +199,7 @@ function agras({ coaxial, scale, bladeMaterial, tipMaterial, sprinklerFront }) {
     const band = tube(base.clone().addScaledVector(dir, 0.17 * s), base.clone().addScaledVector(dir, 0.2 * s), 0.039 * s, mats.yellow);
     root.add(band);
     root.add(cyl(0.06 * s, 0.06 * s, 0.1 * s, mats.black, end.x, end.y, end.z));
-    root.add(cyl(0.1 * s, 0.09 * s, 0.11 * s, mats.black, end.x, end.y + 0.1 * s, end.z, 40));
+    root.add(cyl(0.1 * s, 0.09 * s, 0.11 * s, mats.metal, end.x, end.y + 0.1 * s, end.z, 40));
     const top = k.prop(0.68 * s, 0.13 * s, bladeMaterial(mats), tipMaterial?.(mats), 0.05 * s);
     top.position.set(end.x, end.y + 0.17 * s, end.z);
     top.rotation.y = sx * sz * 0.6;
@@ -136,7 +207,7 @@ function agras({ coaxial, scale, bladeMaterial, tipMaterial, sprinklerFront }) {
     root.add(top);
     props.push(top);
     if (coaxial) {
-      root.add(cyl(0.09 * s, 0.1 * s, 0.13 * s, mats.black, end.x, end.y - 0.11 * s, end.z, 40));
+      root.add(cyl(0.09 * s, 0.1 * s, 0.13 * s, mats.metal, end.x, end.y - 0.11 * s, end.z, 40));
       const low = k.prop(0.68 * s, 0.13 * s, bladeMaterial(mats), tipMaterial?.(mats), 0.05 * s);
       low.position.set(end.x, end.y - 0.2 * s, end.z);
       low.rotation.y = -sx * sz * 0.9;
@@ -167,7 +238,7 @@ function mavic3m() {
   root.add(body);
   root.add(box(0.07 * S, 0.03 * S, 0.17 * S, 0.014 * S, mats.mavicLight, 0, 0.14 * S, -0.005 * S));
   root.add(cyl(0.028 * S, 0.034 * S, 0.034 * S, mats.mavicLight, 0, 0.17 * S, -0.015 * S, 40));
-  const dome = mesh(new THREE.SphereGeometry(0.028 * S, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2), mats.mavicLight, 0, 0.187 * S, -0.015 * S);
+  const dome = mesh(new THREE.SphereGeometry(0.028 * S, 24, 12, 0, Math.PI * 2, 0, Math.PI / 2), mats.mavicLight, 0, 0.187 * S, -0.015 * S);
   root.add(dome);
   for (let i = 0; i < 6; i++) root.add(box(0.05 * S, 0.003 * S, 0.004 * S, 0.0015 * S, mats.black, 0, 0.121 * S, (0.07 + i * 0.008) * S));
   for (const x of [-0.035, 0.035]) {
@@ -208,7 +279,7 @@ function mavic3m() {
     arm.rotation.y = -Math.atan2(dir.z, dir.x);
     arm.rotation.z = Math.atan2(dir.y, Math.hypot(dir.x, dir.z));
     root.add(arm);
-    root.add(cyl(0.016 * S, 0.016 * S, 0.026 * S, mats.mavicDark, to.x, to.y + 0.008 * S, to.z));
+    root.add(cyl(0.016 * S, 0.016 * S, 0.026 * S, mats.metal, to.x, to.y + 0.008 * S, to.z));
     root.add(cyl(0.012 * S, 0.013 * S, 0.008 * S, mats.mavic, to.x, to.y - 0.009 * S, to.z));
     if (a.front) {
       const leg = box(0.008 * S, 0.05 * S, 0.012 * S, 0.003 * S, mats.mavicDark, to.x, to.y - 0.034 * S, to.z);

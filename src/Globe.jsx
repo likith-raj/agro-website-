@@ -48,7 +48,7 @@ export default function Globe({ paused = false, reducedMotion = false }) {
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 40);
     camera.position.set(0, 0, 6.6);
-    const geometry = new THREE.SphereGeometry(2, 64, 48);
+    const geometry = new THREE.SphereGeometry(2, 48, 32);
     const material = new THREE.MeshStandardMaterial({
       color: 0xffffff,
       roughness: 0.92,
@@ -68,13 +68,14 @@ export default function Globe({ paused = false, reducedMotion = false }) {
     let frame = null;
     let lastTime = null;
     let pointer = null;
+    let visible = false;
 
     const draw = () => {
       if (disposed || contextLost) return;
       earth.rotation.copy(rotation);
       renderer.render(scene, camera);
     };
-    const moving = () => !motionRef.current.paused && !motionRef.current.reducedMotion;
+    const moving = () => visible && !document.hidden && !motionRef.current.paused && !motionRef.current.reducedMotion;
     const step = (seconds) => {
       if (!disposed && !contextLost && moving() && !pointer && Number.isFinite(seconds) && seconds > 0) {
         rotation.y += seconds * 0.075;
@@ -109,6 +110,12 @@ export default function Globe({ paused = false, reducedMotion = false }) {
       draw();
     };
     syncRef.current = sync;
+    const intersection = new IntersectionObserver(([entry]) => {
+      visible = entry.isIntersecting;
+      sync();
+    }, { rootMargin: '100px' });
+    intersection.observe(stage);
+    document.addEventListener('visibilitychange', sync);
 
     const texture = new THREE.TextureLoader().load(earthUrl, (loaded) => {
       if (disposed) {
@@ -181,6 +188,8 @@ export default function Globe({ paused = false, reducedMotion = false }) {
       disposed = true;
       stop();
       observer.disconnect();
+      intersection.disconnect();
+      document.removeEventListener('visibilitychange', sync);
       canvas.removeEventListener('pointerdown', pointerDown);
       canvas.removeEventListener('pointermove', pointerMove);
       canvas.removeEventListener('pointerup', pointerEnd);

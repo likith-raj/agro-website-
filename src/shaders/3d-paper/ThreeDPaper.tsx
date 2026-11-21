@@ -1,10 +1,4 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
-import { preparePaperSource } from "../../threeuiContent";
-
-import threeDPaperSource from "./sources/3d-paper.html?raw";
-import certificateSource from "./sources/3d-paper-certificate.html?raw";
-import japaneseSource from "./sources/3d-paper-japanese.html?raw";
-import siteOfTheYearSource from "./sources/3d-paper-site-of-the-year.html?raw";
 
 export type ThreeDPaperVariant = "original" | "site-of-the-year" | "japanese" | "certificate";
 
@@ -15,12 +9,23 @@ export type ThreeDPaperProps = {
   paused?: boolean;
 };
 
-const sources: Record<ThreeDPaperVariant, string> = {
-  original: preparePaperSource(threeDPaperSource),
-  "site-of-the-year": siteOfTheYearSource,
-  japanese: japaneseSource,
-  certificate: certificateSource,
+const sourceLoaders: Record<ThreeDPaperVariant, () => Promise<string>> = {
+  original: () => Promise.all([
+    import("./sources/3d-paper.html?raw"),
+    import("../../threeuiContent"),
+  ]).then(([source, { preparePaperSource }]) => preparePaperSource(source.default)),
+  "site-of-the-year": () => import("./sources/3d-paper-site-of-the-year.html?raw").then(source => source.default),
+  japanese: () => import("./sources/3d-paper-japanese.html?raw").then(source => source.default),
+  certificate: () => import("./sources/3d-paper-certificate.html?raw").then(source => source.default),
 };
+const sourcePromises: Partial<Record<ThreeDPaperVariant, Promise<string>>> = {};
+
+function loadPaperSource(variant: ThreeDPaperVariant) {
+  return sourcePromises[variant] ??= sourceLoaders[variant]().catch(error => {
+    delete sourcePromises[variant];
+    throw error;
+  });
+}
 
 const titles: Record<ThreeDPaperVariant, string> = {
   original: "Agro Drone Tech — Sales & Compliance",
@@ -37,7 +42,10 @@ export function ThreeDPaper({ className = "", style, variant = "original", pause
   ));
   const [hostVisible, setHostVisible] = useState(false);
   const [mounted, setMounted] = useState(false);
-  const [ready, setReady] = useState(false);
+  const [documentSource, setDocumentSource] = useState<{ variant: ThreeDPaperVariant; html: string }>();
+  const [readyVariant, setReadyVariant] = useState<ThreeDPaperVariant>();
+  const source = documentSource?.variant === variant ? documentSource.html : undefined;
+  const ready = readyVariant === variant && source !== undefined;
   const scenePaused = paused || !hostVisible || !documentVisible;
 
   useEffect(() => {
@@ -64,8 +72,16 @@ export function ThreeDPaper({ className = "", style, variant = "original", pause
   }, []);
 
   useEffect(() => {
-    setReady(false);
-  }, [variant]);
+    setReadyVariant(undefined);
+    if (!mounted) return undefined;
+    let cancelled = false;
+    loadPaperSource(variant).then(html => {
+      if (!cancelled) setDocumentSource({ variant, html });
+    }).catch(error => {
+      if (!cancelled) console.error('Unable to load paper scene.', error);
+    });
+    return () => { cancelled = true; };
+  }, [mounted, variant]);
 
   return (
     <div
@@ -82,15 +98,16 @@ export function ThreeDPaper({ className = "", style, variant = "original", pause
         ...style,
       }}
     >
-      {mounted ? (
+      {mounted && source ? (
         <iframe
+          key={variant}
           ref={frameRef}
           title={titles[variant]}
-          srcDoc={sources[variant]}
+          srcDoc={source}
           sandbox="allow-scripts"
           loading="eager"
           onLoad={() => {
-            setReady(true);
+            setReadyVariant(variant);
             frameRef.current?.contentWindow?.postMessage({ type: 'agro-scene-motion', paused: scenePaused }, '*');
           }}
           style={{

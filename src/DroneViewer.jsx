@@ -16,6 +16,51 @@ function shadowTexture() {
   return new THREE.CanvasTexture(c);
 }
 
+// One WebGL context for every viewer: shader programs compile once instead of once per viewer.
+let shared = null;
+function acquireRenderer() {
+  if (shared?.lost) throw new Error('WebGL context lost');
+  if (!shared) {
+    const renderer = new THREE.WebGLRenderer({ canvas: document.createElement('canvas'), alpha: true, antialias: true, powerPreference: 'low-power' });
+    renderer.setPixelRatio(1);
+    renderer.setClearColor(0x000000, 0);
+    renderer.setScissorTest(true);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.05;
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    const room = new RoomEnvironment();
+    const env = pmrem.fromScene(room, 0.04).texture;
+    const onLost = new Set();
+    const s = { renderer, pmrem, room, env, onLost, users: 0, width: 0, height: 0, lost: false };
+    renderer.domElement.addEventListener('webglcontextlost', e => { e.preventDefault(); s.lost = true; [...onLost].forEach(f => f()); });
+    shared = s;
+  }
+  shared.users++;
+  return shared;
+}
+function releaseRenderer() {
+  if (--shared.users > 0) return;
+  shared.env.dispose();
+  shared.room.dispose?.();
+  shared.pmrem.dispose();
+  shared.renderer.dispose();
+  shared = null;
+}
+function paint(s, scene, camera, ctx, w, h) {
+  if (s.lost) return;
+  if (w > s.width || h > s.height) {
+    s.width = Math.max(s.width, w);
+    s.height = Math.max(s.height, h);
+    s.renderer.setSize(s.width, s.height, false);
+  }
+  s.renderer.setViewport(0, 0, w, h);
+  s.renderer.setScissor(0, 0, w, h);
+  s.renderer.render(scene, camera);
+  ctx.clearRect(0, 0, w, h);
+  ctx.drawImage(s.renderer.domElement, 0, s.height - h, w, h, 0, 0, w, h);
+}
+
 export default function DroneViewer({ product, paused = false, reduced = false, hero = false }) {
   const stageRef = useRef(null);
   const canvasRef = useRef(null);
@@ -43,23 +88,18 @@ export default function DroneViewer({ product, paused = false, reduced = false, 
     function initialize() {
       const stage = stageRef.current;
       const canvas = canvasRef.current;
-      let renderer;
+      let sh, ctx;
       try {
-        renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, powerPreference: 'low-power' });
+        sh = acquireRenderer();
       } catch {
         setUnavailable(true);
         return undefined;
       }
-      renderer.setClearColor(0x000000, 0);
-      renderer.outputColorSpace = THREE.SRGBColorSpace;
-      renderer.toneMapping = THREE.ACESFilmicToneMapping;
-      renderer.toneMappingExposure = 1.05;
+      ctx = canvas.getContext('2d');
+      let pw = 1, ph = 1;
 
       const scene = new THREE.Scene();
-      const pmrem = new THREE.PMREMGenerator(renderer);
-      const room = new RoomEnvironment();
-      const env = pmrem.fromScene(room, 0.04).texture;
-      scene.environment = env;
+      scene.environment = sh.env;
       scene.environmentIntensity = 0.75;
       const key = new THREE.DirectionalLight(0xfff1e4, 2.1);
       key.position.set(-3, 5, 4);
@@ -85,11 +125,12 @@ export default function DroneViewer({ product, paused = false, reduced = false, 
 
       const show = id => {
         if (state.product === id) return;
+        // Build first so the shared surface textures stay alive across the swap.
+        const built = buildDrone(id);
         if (state.current) {
           pivot.remove(state.current);
           state.disposables.forEach(d => d.dispose());
         }
-        const built = buildDrone(id);
         const box = new THREE.Box3().setFromObject(built.root);
         const size = box.getSize(new THREE.Vector3());
         const center = box.getCenter(new THREE.Vector3());
@@ -114,7 +155,7 @@ export default function DroneViewer({ product, paused = false, reduced = false, 
         if (disposed || contextLost) return;
         pivot.rotation.set(0, state.yaw, 0);
         hover.rotation.x = state.pitch;
-        renderer.render(scene, camera);
+        paint(sh, scene, camera, ctx, pw, ph);
         state.frames++;
       };
       const moving = () => visible && !document.hidden && !motionRef.current.paused && !motionRef.current.reduced;
@@ -144,8 +185,10 @@ export default function DroneViewer({ product, paused = false, reduced = false, 
         if (disposed || contextLost) return;
         const r = stage.getBoundingClientRect();
         const w = Math.max(1, Math.round(r.width)), h = Math.max(1, Math.round(r.height));
-        renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
-        renderer.setSize(w, h, false);
+        const dpr = Math.min(window.devicePixelRatio || 1, hero ? 1.75 : 1.5);
+        pw = Math.round(w * dpr);
+        ph = Math.round(h * dpr);
+        if (canvas.width !== pw || canvas.height !== ph) { canvas.width = pw; canvas.height = ph; }
         camera.aspect = w / h;
         const distance = 5 / Math.min(1, camera.aspect / 1.5) * (hero ? 0.92 : 1);
         camera.position.set(0, distance * 0.36, distance);
@@ -187,14 +230,14 @@ export default function DroneViewer({ product, paused = false, reduced = false, 
           draw();
         }
       };
-      const lost = e => { e.preventDefault(); contextLost = true; stop(); setReadyProduct(null); setUnavailable(true); };
+      const lost = () => { contextLost = true; stop(); setReadyProduct(null); setUnavailable(true); };
       canvas.addEventListener('pointerdown', down);
       canvas.addEventListener('pointermove', move);
       canvas.addEventListener('pointerup', up);
       canvas.addEventListener('pointercancel', up);
       canvas.addEventListener('lostpointercapture', up);
       canvas.addEventListener('keydown', key3d);
-      canvas.addEventListener('webglcontextlost', lost);
+      sh.onLost.add(lost);
 
       apiRef.current = { sync, show };
       stage.__drone = { state, step: dt => { step(dt); return { yaw: state.yaw, frames: state.frames, props: state.props.map(p => p.rotation.y) }; } };
@@ -213,15 +256,12 @@ export default function DroneViewer({ product, paused = false, reduced = false, 
         canvas.removeEventListener('pointercancel', up);
         canvas.removeEventListener('lostpointercapture', up);
         canvas.removeEventListener('keydown', key3d);
-        canvas.removeEventListener('webglcontextlost', lost);
+        sh.onLost.delete(lost);
         state.disposables.forEach(d => d.dispose());
         shadow.geometry.dispose();
         shadowMat.dispose();
         shadowMap.dispose();
-        env.dispose();
-        room.dispose?.();
-        pmrem.dispose();
-        renderer.dispose();
+        releaseRenderer();
         apiRef.current = null;
         delete stage.__drone;
       };

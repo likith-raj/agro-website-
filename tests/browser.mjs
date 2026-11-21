@@ -76,6 +76,7 @@ async function screenshot(name, full = false) {
   const { data } = await cdp('Page.captureScreenshot', { format: 'png', captureBeyondViewport: full, ...(clip ? { clip } : {}) });
   await fs.writeFile(path.join(output, name), Buffer.from(data, 'base64'));
 }
+try {
 await cdp('Page.enable');
 await cdp('Runtime.enable');
 await cdp('Emulation.setEmulatedMedia', { features: [] });
@@ -83,14 +84,19 @@ await cdp('Browser.setDownloadBehavior', { behavior: 'allow', downloadPath: outp
 await cdp('Emulation.setDeviceMetricsOverride', { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
 await cdp('Emulation.setTouchEmulationEnabled', { enabled: false });
 await cdp('Page.navigate', { url: origin });
-await until(`document.querySelectorAll('.product-card').length===3 && !!document.querySelector('.globe-stage')?.getRotation && [...document.querySelectorAll('.drone-stage')].filter(e=>e.__drone&&e.getAttribute('aria-busy')==='false').length===4`);
-await evaluate('document.fonts.ready.then(()=>true)');
+await until(`document.querySelectorAll('.product-card').length===3 && !!document.querySelector('.hero-visual .drone-stage')?.__drone && document.querySelector('.hero-visual .drone-stage').getAttribute('aria-busy')==='false'`);
+await evaluate(`Promise.all([document.fonts.ready, document.fonts.load('300 32px "Inter"')]).then(()=>true)`);
 await until(`[...document.images].filter(e=>!e.loading||e.loading!=='lazy').every(e=>e.complete&&e.naturalWidth>0)`);
 const results = [];
 function check(name, actual, expected = true) {
   assert.deepEqual(actual, expected, name);
   results.push({ name, pass: true });
 }
+check('Offscreen GPU scenes are not initialized at startup', await evaluate(`[...document.querySelectorAll('.product-card .drone-stage')].every(e=>!e.__drone) && !document.querySelector('.globe-stage')?.getRotation && !document.querySelector('.shader-frame iframe')`));
+await evaluate(`document.getElementById('products').scrollIntoView({behavior:'instant',block:'center'})`);
+await until(`[...document.querySelectorAll('.product-card .drone-stage')].filter(e=>e.__drone&&e.getAttribute('aria-busy')==='false').length===3`);
+await evaluate(`document.getElementById('contact').scrollIntoView({behavior:'instant',block:'center'})`);
+await until(`!!document.querySelector('.globe-stage')?.getRotation`);
 check('Desktop has no horizontal overflow', await evaluate('document.documentElement.scrollWidth<=innerWidth'));
 check('Inter loaded locally', await evaluate(`getComputedStyle(document.body).fontFamily.includes('Inter') && document.fonts.check('300 32px "Inter"') && document.fonts.check('400 14px "Inter"')`));
 check('Three real product cards', await evaluate(`[...document.querySelectorAll('.product-card h3')].map(e=>e.textContent)`), ['T50', 'T25', 'Mavic 3M']);
@@ -99,12 +105,15 @@ await cdp('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 500, y: 120 });
 check('Native arrow replaces the circular cursor', await evaluate(`!document.querySelector('.cursor') && !document.documentElement.classList.contains('custom-pointer') && getComputedStyle(document.body).cursor==='default'`));
 check('Pause control removed from desktop', await evaluate(`!document.querySelector('.motion-switch')`));
 check('All website text is uppercase', await evaluate(`[...document.querySelectorAll('h1,h2,h3,p,button,a,label')].every(e=>getComputedStyle(e).textTransform==='uppercase')`));
-check('Headings match the light spaced reference', await evaluate(`getComputedStyle(document.querySelector('h1')).fontWeight==='300' && parseFloat(getComputedStyle(document.querySelector('h1')).letterSpacing)>0`));
+check('Headings use locally loaded expanded Archivo at readable medium weight', await evaluate(`getComputedStyle(document.querySelector('h1')).fontFamily.includes('Archivo') && getComputedStyle(document.querySelector('h1')).fontWeight==='500' && getComputedStyle(document.querySelector('h1')).fontStretch==='125%' && document.fonts.check('500 32px "Archivo"') && parseFloat(getComputedStyle(document.querySelector('h1')).letterSpacing)>0`));
 check('Globe auto-rotation responds', await evaluate(`(()=>{const g=document.querySelector('.globe-stage');const a=g.getRotation().y;g.__step(2);return g.getRotation().y>a})()`));
 check('Hero and all three cards show a 3D drone model', await evaluate(`[...document.querySelectorAll('.drone-stage')].filter(e=>e.querySelector('canvas')&&e.__drone).map(e=>e.dataset.product)`), ['t50', 't50', 't25', 'mavic']);
 check('3D models are labelled as illustrations', await evaluate(`[...document.querySelectorAll('.drone-stage canvas')].every(c=>c.getAttribute('aria-label').includes('3D illustration'))`));
 check('Startup and viewer loaders finish after the first render', await evaluate(`!document.querySelector('.site-loading,.viewer-pending') && [...document.querySelectorAll('.viewer-loading')].every(e=>e.getAttribute('aria-hidden')==='true')`));
+await evaluate(`window.scrollTo({top:0,behavior:'instant'})`);
+await settleScroll();
 check('Hero 3D drone animates on its own', await evaluate(`(async()=>{const d=document.querySelector('.hero-visual .drone-stage').__drone;const a=d.state.frames,y=d.state.yaw;await new Promise(r=>setTimeout(r,700));return d.state.frames>a&&d.state.yaw>y})()`));
+check('Offscreen globe is paused', await evaluate(`(()=>{const g=document.querySelector('.globe-stage');const y=g.getRotation().y;g.__step(2);return g.getRotation().y===y})()`));
 check('3D rotation and propellers respond', await evaluate(`[...document.querySelectorAll('.product-card .drone-stage')].every(e=>{const d=e.__drone;const y=d.state.yaw,p=d.state.props.map(q=>q.rotation.y);const r=d.step(1);return r.yaw>y&&r.props.length>=4&&r.props.every((v,i)=>v!==p[i])})`));
 await evaluate(`window.scrollTo({top:0,behavior:'instant'})`);
 await screenshot('desktop-hero.png');
@@ -173,7 +182,8 @@ check('Mobile navigation expands', await evaluate(`document.querySelector('.menu
 await click('.nav-links a', 0);
 await until(`document.querySelector('.menu-toggle').getAttribute('aria-expanded')==='false'`);
 check('Mobile navigation closes after selection', true);
-await evaluate(`window.scrollTo({top:0,behavior:'instant'})`);
+await click('.brand');
+await until('window.scrollY<2');
 await screenshot('mobile-hero.png');
 await screenshot('mobile-full.png', true);
 await click('.product-buttons .text-link', 2);
@@ -181,16 +191,32 @@ await until('!!document.querySelector("dialog[open]")');
 check('Mobile dialog stays within viewport', await evaluate(`(()=>{const r=document.querySelector('dialog[open]').getBoundingClientRect();return r.x>=0 && r.right<=innerWidth && r.height<=innerHeight;})()`));
 await screenshot('mobile-product-detail.png');
 await escape();
+for (const width of [768, 1024]) {
+  await cdp('Emulation.setDeviceMetricsOverride', { width, height: 900, deviceScaleFactor: 1, mobile: false });
+  await until(`${width <= 850 ? '!!' : '!'}document.querySelector('.menu-toggle')`);
+  check(`Width ${width} has no horizontal overflow`, await evaluate('document.documentElement.scrollWidth<=innerWidth'));
+}
 await cdp('Emulation.setDeviceMetricsOverride', { width: 320, height: 740, deviceScaleFactor: 1, mobile: true });
 check('Small phone has no horizontal overflow', await evaluate('document.documentElement.scrollWidth<=innerWidth'));
 await cdp('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
 await cdp('Page.navigate', { url: origin });
+await until(`!!document.querySelector('.hero-visual .drone-stage')?.__drone`);
+await evaluate(`document.getElementById('contact').scrollIntoView({behavior:'instant',block:'center'})`);
 await until(`!!document.querySelector('.globe-stage')?.getRotation`);
 check('Reduced motion honored without a custom cursor', await evaluate(`(()=>{const g=document.querySelector('.globe-stage');const a=g.getRotation().y;g.__step(2);return g.getRotation().y===a&&!document.querySelector('.cursor')})()`));
 await until(`!!document.querySelector('.hero-visual .drone-stage')?.__drone`);
+await evaluate(`window.scrollTo({top:0,behavior:'instant'})`);
 check('Reduced motion keeps the 3D drone still', await evaluate(`(async()=>{const d=document.querySelector('.hero-visual .drone-stage').__drone;await new Promise(r=>setTimeout(r,300));const a=d.state.frames,y=d.state.yaw;await new Promise(r=>setTimeout(r,700));return a>0&&d.state.frames===a&&d.state.yaw===y})()`));
 check('Reduced motion disables the loading arc and shimmer', await evaluate(`getComputedStyle(document.querySelector('.loading-arc')).animationName==='none' && getComputedStyle(document.querySelector('.viewer-skeleton span'),'::after').animationName==='none'`));
+const { identifier } = await cdp('Page.addScriptToEvaluateOnNewDocument', { source: `const originalContext=HTMLCanvasElement.prototype.getContext;HTMLCanvasElement.prototype.getContext=function(type,...args){return type.startsWith('webgl')?null:originalContext.call(this,type,...args)};` });
+await cdp('Page.navigate', { url: origin });
+await until(`document.querySelector('.hero-visual .drone-fallback')?.naturalWidth>0 && document.querySelector('.hero-visual .drone-stage').getAttribute('aria-busy')==='false'`);
+check('WebGL unavailable shows an accessible real-photo fallback', await evaluate(`document.querySelector('.hero-visual canvas').hidden && !!document.querySelector('.hero-visual .drone-fallback').alt && !document.querySelector('.hero-visual .viewer-pending')`));
+await cdp('Page.removeScriptToEvaluateOnNewDocument', { identifier });
 check('No JavaScript exceptions', errors.length, 0);
 await fs.writeFile(path.join(output, 'browser-results.json'), JSON.stringify({ origin, timestamp: new Date().toISOString(), checks: results, errors }, null, 2));
 console.log(JSON.stringify({ checks: results.length, passed: results.length, screenshots: output, errors: errors.length }, null, 2));
-socket.close();
+} finally {
+  await fetch(`${browser}/json/close/${page.id}`);
+  socket.close();
+}
